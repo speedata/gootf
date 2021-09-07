@@ -1,4 +1,4 @@
-package opentye
+package opentype
 
 import (
 	"bytes"
@@ -44,6 +44,7 @@ func (tt *Font) cffWriteNameIndex(w io.Writer) int {
 	return tt.cffWriteIndex(w, data)
 }
 
+// cffReadIndex reads a number of slices with data.
 func (tt *Font) cffReadIndex() [][]byte {
 	var count uint16
 	tt.read(&count)
@@ -63,6 +64,8 @@ func (tt *Font) cffReadIndex() [][]byte {
 	return data
 }
 
+// cffWriteIndex writes the data slices to the writer w in CFF index format (cf CFF spec 5 INDEX Data p. 12).
+// It returns the total number of bytes written to the writer.
 func (tt *Font) cffWriteIndex(w io.Writer, data [][]byte) int {
 	count := uint16(len(data))
 	tt.write(w, count)
@@ -70,6 +73,7 @@ func (tt *Font) cffWriteIndex(w io.Writer, data [][]byte) int {
 	if count == 0 {
 		return indexLen
 	}
+	// TODO: offset size should depend on the actual offset values
 	offsetSize := uint8(1)
 	tt.write(w, offsetSize)
 	tt.write(w, uint8(1))
@@ -98,6 +102,8 @@ func (tt *Font) readBytes(n int) []byte {
 	return b
 }
 
+// readOffset returns the offset value used in the index data.
+// It depends on offset size which can be one to four bytes.
 func (tt *Font) readOffset(offsetsize uint8) uint32 {
 	switch offsetsize {
 	case 1:
@@ -119,6 +125,7 @@ func (tt *Font) readOffset(offsetsize uint8) uint32 {
 	}
 }
 
+// One dictionary for each subfont.
 func (tt *Font) cffWriteDictIndex(w io.Writer) int {
 	var data [][]byte
 	for _, fnt := range tt.CFF.font {
@@ -127,7 +134,7 @@ func (tt *Font) cffWriteDictIndex(w io.Writer) int {
 	return tt.cffWriteIndex(w, data)
 }
 
-// Dict index
+// cffReadDictIndex creates the tt.CFF.font objects and fills the data for each font found in the dict index.
 func (tt *Font) cffReadDictIndex() {
 	for i, entry := range tt.cffReadIndex() {
 		fnt := &CFFFont{
@@ -142,7 +149,7 @@ func (tt *Font) cffReadDictIndex() {
 	}
 }
 
-// Strings
+// cffReadStringIndex fills the strings and stringToInt slices
 func (tt *Font) cffReadStringIndex() {
 	for _, entry := range tt.cffReadIndex() {
 		str := string(entry)
@@ -151,6 +158,8 @@ func (tt *Font) cffReadStringIndex() {
 	}
 }
 
+// cffWriteStringIndex writes all (non-predefined) strings to the writer w.
+// It returns the total number of bytes written to w.
 func (tt *Font) cffWriteStringIndex(w io.Writer) int {
 	var data [][]byte
 	// only write the not-predefined strings
@@ -160,6 +169,7 @@ func (tt *Font) cffWriteStringIndex(w io.Writer) int {
 	return tt.cffWriteIndex(w, data)
 }
 
+// cffReadCharset reads the glyph names of the font
 func (tt *Font) cffReadCharset(v *CFFFont) {
 	tt.r.Seek(v.charsetOffset, io.SeekStart)
 	v.charset = make([]int, v.nglyphs)
@@ -200,6 +210,7 @@ func (tt *Font) cffReadCharset(v *CFFFont) {
 	}
 }
 
+// cffWriteCharset writes the glyph names of the font to the writer w. It returns the number of bytes written to w.
 func (tt *Font) cffWriteCharset(w io.Writer, v *CFFFont) int {
 	format := uint8(0)
 	tt.write(w, format)
@@ -218,6 +229,7 @@ func (tt *Font) cffReadPrivateDict(v *CFFFont) {
 	v.privatedict = data
 }
 
+// cffWritePrivateDict write the private dictionary of a CFFFont. It returns the number of bytes written to w.
 func (tt *Font) cffWritePrivateDict(w io.Writer, v *CFFFont) int {
 	tt.write(w, v.privatedict)
 	return len(v.privatedict)
@@ -446,6 +458,7 @@ func (c *CFFFont) readString(sid int) string {
 	return c.global.readString(sid)
 }
 
+// Top DICT Data - see CFF spec 9 p. 14
 func (c *CFFFont) parseDict(dict []byte) {
 	operands := make([]int, 0, 48)
 	operandsf := make([]float64, 0, 48)
@@ -516,6 +529,8 @@ func (c *CFFFont) parseDict(dict []byte) {
 				} else if len(operandsf) > 0 {
 					c.underlineThickness = operandsf[0]
 				}
+			case 8:
+				// StrokeWidth
 			case 9:
 				c.bluescale = operandsf[0]
 			// case 10:
@@ -657,7 +672,6 @@ func (c *CFFFont) parseDict(dict []byte) {
 			fmt.Println("b0", b0)
 			panic("not implemented yet")
 		}
-
 	}
 }
 
@@ -711,6 +725,16 @@ func (tt *Font) readCFF(tbl tableOffsetLength) error {
 	return nil
 }
 
+// writeCFF writes the “CFF ” table  to th given writer.
+// The data structure in the cff font is:
+//
+// Header
+// Name INDEX
+// Top DICT INDEX
+// String INDEX
+// Global Subr INDEX
+// Encodings
+// Charsets
 func (tt *Font) writeCFF(w io.Writer) error {
 	tt.write(w, tt.CFF.Major)
 	tt.write(w, tt.CFF.Minor)

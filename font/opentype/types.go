@@ -1,4 +1,4 @@
-package opentye
+package opentype
 
 import "io"
 
