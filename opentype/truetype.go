@@ -12,7 +12,25 @@ import (
 	"sort"
 	"strings"
 	"unicode/utf16"
+
+	nested "github.com/antonfisher/nested-logrus-formatter"
+	"github.com/sirupsen/logrus"
+	"github.com/speedata/gootf/cff"
 )
+
+var log *logrus.Logger
+
+func init() {
+	log = logrus.New()
+	log.SetFormatter(&nested.Formatter{
+		HideKeys: false,
+		NoColors: true,
+	})
+
+	log.SetLevel(logrus.TraceLevel)
+	// log.SetReportCaller(true)
+	log.SetOutput(os.Stdout)
+}
 
 func (tt *Font) String() string {
 	return "font"
@@ -41,7 +59,7 @@ func (tt *Font) write(w io.Writer, data interface{}) {
 }
 
 func (tt *Font) readToTableEnd(name string) []byte {
-	cur, _ := tt.r.Seek(0, os.SEEK_CUR)
+	cur, _ := tt.r.Seek(0, io.SeekCurrent)
 	tbl := tt.tables[name]
 	lastbytePos := tbl.offset + tbl.length
 	l := int64(lastbytePos) - cur
@@ -61,7 +79,7 @@ func (tt *Font) fixed() float64 {
 // ReadTableData does not interpret the bytes read.
 func (tt *Font) ReadTableData(tbl string) ([]byte, error) {
 	off := int64(tt.tables[tbl].offset)
-	_, err := tt.r.Seek(off, os.SEEK_SET)
+	_, err := tt.r.Seek(off, io.SeekStart)
 	if err != nil {
 		return nil, err
 	}
@@ -83,14 +101,17 @@ func (tt *Font) readTable(tbl string) error {
 	thistable := tt.tables[tbl]
 	off := int64(thistable.offset)
 
-	_, err := tt.r.Seek(off, os.SEEK_SET)
+	_, err := tt.r.Seek(off, io.SeekStart)
 	if err != nil {
 		return err
 	}
 	tt.tablesRead[tbl] = true
 	switch tbl {
 	case "CFF ":
-		if err = tt.readCFF(thistable); err != nil {
+		bcff, err := tt.ReadTableData("CFF ")
+		nr := bytes.NewReader(bcff)
+		tt.CFF, err = cff.ParseCFFData(nr)
+		if err != nil {
 			return err
 		}
 	case "head":
@@ -138,7 +159,9 @@ func (tt *Font) readTable(tbl string) error {
 			return err
 		}
 	case "name":
-		tt.readName(off)
+		if err = tt.readName(off); err != nil {
+			return err
+		}
 	// case "kern":
 	// 	// tt.readKern(off)
 	case "hhea":
@@ -151,37 +174,42 @@ func (tt *Font) readTable(tbl string) error {
 
 // WriteTable writes the table to w.
 func (tt *Font) WriteTable(w io.Writer, tbl string) error {
+	var err error
 	switch tbl {
 	case "CFF ":
-		tt.writeCFF(w)
+		err = tt.CFF.WriteCFFData(w)
 	case "loca":
-		tt.writeLoca(w)
+		err = tt.writeLoca(w)
 	case "hhea":
-		tt.writeHhea(w)
+		err = tt.writeHhea(w)
 	case "head":
-		tt.writeHead(w)
+		err = tt.writeHead(w)
 	case "maxp":
-		tt.writeMaxp(w)
+		err = tt.writeMaxp(w)
 	case "hmtx":
-		tt.writeHmtx(w)
+		err = tt.writeHmtx(w)
 	case "fpgm":
-		tt.writeFpgm(w)
+		err = tt.writeFpgm(w)
 	case "cvt ":
-		tt.writeCvt(w)
+		err = tt.writeCvt(w)
 	case "prep":
-		tt.writePrep(w)
+		err = tt.writePrep(w)
 	case "glyf":
-		tt.writeGlyf(w)
+		err = tt.writeGlyf(w)
 	case "post":
-		tt.writePost(w)
+		err = tt.writePost(w)
 	case "OS/2":
-		tt.writeOs2(w)
+		err = tt.writeOs2(w)
 	default:
 		// fmt.Printf("    skip write table %s\n", tbl)
+	}
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
+// readName reads the name table from the TrueType font.
 func (tt *Font) readName(offset int64) error {
 	var version, count, stringOffset uint16
 	tt.read(&version)
@@ -208,7 +236,7 @@ func (tt *Font) readName(offset int64) error {
 			names = append(names, ne)
 		}
 		for _, ne := range names {
-			tt.r.Seek(ne.offset+int64(stringOffset)+offset, os.SEEK_SET)
+			tt.r.Seek(ne.offset+int64(stringOffset)+offset, io.SeekStart)
 			if _, ok := tt.names[int(ne.nameID)]; ok {
 				continue
 			}
@@ -234,9 +262,11 @@ func (tt *Font) readName(offset int64) error {
 	default:
 		panic("not implemented yet: name version != 0")
 	}
+	tt.FontName = tt.names[6]
 	return nil
 }
 
+// readHhea reads the hhea OpenType table.
 func (tt *Font) readHhea(offset int64) error {
 	hhea := Hhea{}
 	var reserved int16
@@ -266,7 +296,7 @@ func (tt *Font) readHhea(offset int64) error {
 	return nil
 }
 
-func (tt *Font) writeHhea(w io.Writer) {
+func (tt *Font) writeHhea(w io.Writer) error {
 	tbl := tt.Hhea
 	tt.write(w, tbl.MajorVersion)
 	tt.write(w, tbl.MinorVersion)
@@ -292,8 +322,10 @@ func (tt *Font) writeHhea(w io.Writer) {
 
 	tt.write(w, tbl.MetricDataFormat)
 	tt.write(w, tbl.NumberOfHMetrics)
+	return nil
 }
 
+// readHmtx reads the hmtx (horizontal metrics) table
 func (tt *Font) readHmtx(tbl tableOffsetLength) error {
 	numMetrics := tt.Hhea.NumberOfHMetrics
 	// todo: if numMetrics < numGlyphs { read lsb }
@@ -311,7 +343,7 @@ func (tt *Font) readHmtx(tbl tableOffsetLength) error {
 	return nil
 }
 
-func (tt *Font) writeHmtx(w io.Writer) {
+func (tt *Font) writeHmtx(w io.Writer) error {
 	l := len(tt.advanceWidth)
 	for i := 0; i < l; i++ {
 		tt.write(w, tt.advanceWidth[i])
@@ -322,6 +354,7 @@ func (tt *Font) writeHmtx(w io.Writer) {
 	for i := 0; i < lLsb; i++ {
 		tt.write(w, tt.lsb[i+l])
 	}
+	return nil
 }
 
 // Font program
@@ -334,8 +367,9 @@ func (tt *Font) readFpgm(tbl tableOffsetLength) error {
 	return nil
 }
 
-func (tt *Font) writeFpgm(w io.Writer) {
+func (tt *Font) writeFpgm(w io.Writer) error {
 	w.Write(tt.fpgm)
+	return nil
 }
 
 // Font program
@@ -345,8 +379,9 @@ func (tt *Font) readCvt(tbl tableOffsetLength) error {
 	return nil
 }
 
-func (tt *Font) writeCvt(w io.Writer) {
+func (tt *Font) writeCvt(w io.Writer) error {
 	w.Write(tt.cvt)
+	return nil
 }
 
 // Font program
@@ -356,8 +391,9 @@ func (tt *Font) readPrep(tbl tableOffsetLength) error {
 	return nil
 }
 
-func (tt *Font) writePrep(w io.Writer) {
+func (tt *Font) writePrep(w io.Writer) error {
 	w.Write(tt.prep)
+	return nil
 }
 
 func (tt *Font) readLoca(tbl tableOffsetLength) error {
@@ -412,8 +448,9 @@ func (tt *Font) readOs2(tbl tableOffsetLength) error {
 	return nil
 }
 
-func (tt *Font) writeOs2(w io.Writer) {
+func (tt *Font) writeOs2(w io.Writer) error {
 	tt.write(w, tt.OS2)
+	return nil
 }
 
 func (tt *Font) readHead(tbl tableOffsetLength) error {
@@ -471,7 +508,7 @@ func (tt *Font) readMaxp(tbl tableOffsetLength) error {
 	return nil
 }
 
-func (tt *Font) writeLoca(w io.Writer) {
+func (tt *Font) writeLoca(w io.Writer) error {
 	if tt.Head.IndexToLocFormat == -1 {
 		tt.readTable("head")
 	}
@@ -488,9 +525,10 @@ func (tt *Font) writeLoca(w io.Writer) {
 			tt.write(w, off)
 		}
 	}
+	return nil
 }
 
-func (tt *Font) writeMaxp(w io.Writer) {
+func (tt *Font) writeMaxp(w io.Writer) error {
 	tbl := tt.Maxp
 	tt.write(w, tbl.Version)
 	tt.write(w, tbl.NumGlyphs)
@@ -513,10 +551,12 @@ func (tt *Font) writeMaxp(w io.Writer) {
 	default:
 		// version 0.5 only has NumGlyphs
 	}
+	return nil
 }
 
-func (tt *Font) writeHead(w io.Writer) {
+func (tt *Font) writeHead(w io.Writer) error {
 	tt.write(w, tt.Head)
+	return nil
 }
 
 func (tt *Font) getGlyphComponentIds(codepoint int) (components []int) {
@@ -540,7 +580,7 @@ func (tt *Font) getGlyphComponentIds(codepoint int) (components []int) {
 		return
 	}
 
-	tt.r.Seek(8, os.SEEK_CUR)
+	tt.r.Seek(8, io.SeekCurrent)
 	var flags uint16
 	var componentIndex uint16
 
@@ -554,25 +594,25 @@ func (tt *Font) getGlyphComponentIds(codepoint int) (components []int) {
 			break
 		}
 		if flags&flagArg1And2AreWords != 0 {
-			tt.r.Seek(4, os.SEEK_CUR)
+			tt.r.Seek(4, io.SeekCurrent)
 		} else {
-			tt.r.Seek(2, os.SEEK_CUR)
+			tt.r.Seek(2, io.SeekCurrent)
 		}
 
 		switch {
 		case flags&flagWeHaveAScale != 0:
-			tt.r.Seek(2, os.SEEK_CUR)
+			tt.r.Seek(2, io.SeekCurrent)
 		case flags&flagWeHaveAnXAndYScale != 0:
-			tt.r.Seek(4, os.SEEK_CUR)
+			tt.r.Seek(4, io.SeekCurrent)
 		case flags&flags&flagWeHaveATwoByTwo != 0:
-			tt.r.Seek(8, os.SEEK_CUR)
+			tt.r.Seek(8, io.SeekCurrent)
 		}
 	}
 	return
 }
 
 func (tt *Font) readGlyf(tbl tableOffsetLength) error {
-	if tt.isCFF {
+	if tt.IsCFF {
 		return nil
 	}
 	if len(tt.glyphOffsets) == 0 {
@@ -597,9 +637,9 @@ func (tt *Font) readGlyf(tbl tableOffsetLength) error {
 	return nil
 }
 
-func (tt *Font) writeGlyf(w io.Writer) {
-	if tt.isCFF {
-		return
+func (tt *Font) writeGlyf(w io.Writer) error {
+	if tt.IsCFF {
+		return nil
 	}
 	glyphOffsets := make([]uint32, len(tt.Glyph))
 	c := uint32(0)
@@ -612,6 +652,7 @@ func (tt *Font) writeGlyf(w io.Writer) {
 	glyphOffsets = append(glyphOffsets, c)
 	tt.Maxp.NumGlyphs = uint16(len(tt.Glyph))
 	tt.glyphOffsets = glyphOffsets
+	return nil
 }
 
 func (tt *Font) readKern(tbl tableOffsetLength) error {
@@ -625,6 +666,7 @@ func (tt *Font) readKern(tbl tableOffsetLength) error {
 	return nil
 }
 
+// readCmap reads the cmap table from an OpenType font.
 func (tt *Font) readCmap(tbl tableOffsetLength) error {
 	var version uint16
 	var subtables uint16
@@ -651,14 +693,29 @@ func (tt *Font) readCmap(tbl tableOffsetLength) error {
 		return err
 	}
 	for offsetCMap := range cmaptables {
-		tt.r.Seek(int64(tbl.offset)+int64(offsetCMap), os.SEEK_SET)
+		tt.r.Seek(int64(tbl.offset)+int64(offsetCMap), io.SeekStart)
 		var format uint16
 		tt.read(&format)
 
-		tt.ToCodepoint = make(map[rune]int, tt.Maxp.NumGlyphs)
-		tt.ToUni = make(map[int]rune, tt.Maxp.NumGlyphs)
 		switch format {
+		case 0:
+			if len(tt.ToUni) == 0 {
+				tt.ToUni = make(map[int]rune, 256)
+				tt.ToCodepoint = make(map[rune]int, 256)
+				var length uint16
+				var language uint16
+				tt.read(&length)
+				tt.read(&language)
+				for i := 0; i < int(length)-6; i++ {
+					var data uint8
+					tt.read(&data)
+					tt.ToUni[i] = rune(data)
+					tt.ToCodepoint[rune(data)] = i
+				}
+			}
 		case 4:
+			tt.ToUni = make(map[int]rune, tt.Maxp.NumGlyphs)
+			tt.ToCodepoint = make(map[rune]int, tt.Maxp.NumGlyphs)
 			// Segment mapping to delta values
 			var length uint16
 			var language uint16
@@ -714,8 +771,8 @@ func (tt *Font) readCmap(tbl tableOffsetLength) error {
 				}
 			}
 		case 6:
-			// Trimmed table mapping
-			// ignore
+		// Trimmed table mapping
+		// ignore
 		case 12:
 			// Segmented coverage
 			var zero uint16
@@ -739,7 +796,6 @@ func (tt *Font) readCmap(tbl tableOffsetLength) error {
 			return fmt.Errorf("format %d not supported in cmap", format)
 		}
 	}
-
 	return nil
 }
 
@@ -793,7 +849,7 @@ func (tt *Font) readPost(tbl tableOffsetLength) error {
 	return nil
 }
 
-func (tt *Font) writePost(w io.Writer) {
+func (tt *Font) writePost(w io.Writer) error {
 	tbl := tt.Post
 
 	tt.write(w, tbl.Version)
@@ -823,21 +879,24 @@ func (tt *Font) writePost(w io.Writer) {
 		tt.write(w, byte(len(n)))
 		tt.write(w, []byte(n))
 	}
+	return nil
 }
 
-// LoadFace loads a truetype font
-func LoadFace(filename string) (*Font, error) {
+// LoadFace loads a truetype font. The fontindex is a 0 based index within the font (ttc or cff for example).
+func LoadFace(filename string, fontindex int) (*Font, error) {
 	r, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
-	return Open(r)
+	return Open(r, fontindex)
 }
 
 // Open initializes the TrueType font
-func Open(r io.ReadSeeker) (*Font, error) {
+func Open(r io.ReadSeeker, fontindex int) (*Font, error) {
+	log.Trace("opentype.Open")
 	tt := &Font{}
 	tt.r = r
+	tt.fontindex = fontindex
 	tt.tables = make(map[string]tableOffsetLength)
 	tt.tablesRead = make(map[string]bool)
 	tt.names = make(map[int]string)
@@ -849,7 +908,7 @@ func Open(r io.ReadSeeker) (*Font, error) {
 	case 65536:
 		// OK
 	case 0x4F54544F:
-		tt.isCFF = true
+		tt.IsCFF = true
 		// OpenType CFF
 	default:
 		return nil, fmt.Errorf("unknown magic %v", tt.sfntVersion)
@@ -861,7 +920,7 @@ func Open(r io.ReadSeeker) (*Font, error) {
 	for i := uint16(0); i < numtables; i++ {
 		ol := tableOffsetLength{}
 		pos := int64(16*i + 12)
-		r.Seek(pos, os.SEEK_SET)
+		r.Seek(pos, io.SeekStart)
 		tbl := make([]byte, 4)
 		n, err := r.Read(tbl)
 		if n != 4 {
@@ -873,7 +932,7 @@ func Open(r io.ReadSeeker) (*Font, error) {
 		tblname := string(tbl)
 		ol.name = tblname
 		// checksum ignored
-		r.Seek(4, os.SEEK_CUR)
+		r.Seek(4, io.SeekCurrent)
 		tt.read(&ol.offset)
 		tt.read(&ol.length)
 		tt.tables[tblname] = ol
@@ -883,25 +942,33 @@ func Open(r io.ReadSeeker) (*Font, error) {
 }
 
 // ReadTables reads all tables from the font file
-func (tt *Font) ReadTables() {
+func (tt *Font) ReadTables() error {
 	var interestingTables []string
-	if tt.isCFF {
-		interestingTables = []string{"CFF "}
+	var err error
+	if tt.IsCFF {
+		interestingTables = []string{"CFF ", "hhea", "maxp", "hmtx", "cmap"}
 	} else {
 		interestingTables = []string{"head", "hhea", "maxp", "loca", "hmtx", "fpgm", "cvt ", "prep", "glyf", "post", "OS/2", "name", "cmap"}
 	}
 	for _, tblname := range interestingTables {
-		tt.readTable(tblname)
+		err = tt.readTable(tblname)
+		if err != nil {
+			return err
+		}
 	}
-
+	return nil
 }
 
 // WriteSubset writes a valid font to w that is suitable for including in PDF
 func (tt *Font) WriteSubset(w io.Writer) error {
+	if tt.IsCFF {
+		return tt.WriteTable(w, "CFF ")
+	}
 	var err error
 
 	var fontfile bytes.Buffer
 	tt.Head.ChecksumAdjustment = 0
+
 	interestingTables := []string{"cvt ", "glyf", "head", "hhea", "hmtx", "loca", "maxp", "prep"}
 	tablesForPDF := []tableOffsetLength{}
 
@@ -977,14 +1044,22 @@ func (tt *Font) WriteSubset(w io.Writer) error {
 
 	b := fontfile.Bytes()
 	checksumFontFile := calcChecksum(b)
-	binary.BigEndian.PutUint32(b[checksumAdjustmentOffset:], checksumFontFile-0xB1B0AFBA)
+	if checksumAdjustmentOffset > 0 {
+		// only if we write the head table
+		binary.BigEndian.PutUint32(b[checksumAdjustmentOffset:], checksumFontFile-0xB1B0AFBA)
+	}
 	w.Write(b)
 
 	return nil
 }
+func (tt *Font) subsetCFF(codepoints []int) (string, error) {
+	tt.SubsetID = getCharTag(codepoints)
+	tt.subsetCodepoints = codepoints
 
-// Subset removes all data from the font except the one needed for the given code points. Subset should be only called once.
-func (tt *Font) Subset(codepoints []int) (string, error) {
+	return "", nil
+}
+
+func (tt *Font) subsetTrueType(codepoints []int) (string, error) {
 	tt.SubsetID = getCharTag(codepoints)
 	codepointsMap := make(map[int]struct{}, len(codepoints))
 	for _, cp := range codepoints {
@@ -1030,6 +1105,16 @@ func (tt *Font) Subset(codepoints []int) (string, error) {
 	tt.Hhea.NumberOfHMetrics = uint16(maxCP)
 	tt.subsetCodepoints = codepoints
 	return "", nil
+
+}
+
+// Subset removes all data from the font except the one needed for the given code points.
+// Subset should be only called once.
+func (tt *Font) Subset(codepoints []int) (string, error) {
+	if tt.IsCFF {
+		return tt.subsetCFF(codepoints)
+	}
+	return tt.subsetTrueType(codepoints)
 }
 
 // Codepoints returns the codepoints for each rune
@@ -1043,6 +1128,13 @@ func (tt *Font) Codepoints(runes []rune) []int {
 
 // CMap returns a CMap string to be used in a PDF file
 func (tt *Font) CMap() string {
+	var numGlyphs int
+
+	if tt.IsCFF {
+		numGlyphs = len(tt.CFF.Font[0].CharStrings)
+	} else {
+		numGlyphs = int(tt.Maxp.NumGlyphs)
+	}
 	var b strings.Builder
 	b.WriteString(`/CIDInit /ProcSet findresource begin
 12 dict begin
@@ -1051,9 +1143,9 @@ begincmap
 /CMapName /Adobe-Identity-UCS def /CMapType 2 def
 1 begincodespacerange
 `)
-	fmt.Fprintf(&b, "<0001><%04X>\n", tt.Maxp.NumGlyphs)
+	fmt.Fprintf(&b, "<0001><%04X>\n", numGlyphs)
 	b.WriteString("endcodespacerange\n")
-	fmt.Fprintf(&b, "%d beginbfchar\n", tt.Maxp.NumGlyphs)
+	fmt.Fprintf(&b, "%d beginbfchar\n", numGlyphs)
 	for _, cp := range tt.subsetCodepoints {
 		fmt.Fprintf(&b, "<%04X><%04X>\n", cp, tt.ToUni[cp])
 	}
@@ -1075,7 +1167,11 @@ func (tt *Font) Widths() string {
 
 // PDFName returns the font name with the subset id.
 func (tt *Font) PDFName() string {
-	return fmt.Sprintf("/%s-%s", tt.SubsetID, tt.names[6])
+	if tt.IsCFF {
+		return fmt.Sprintf("/%s-%s", tt.SubsetID, tt.CFF.FontName())
+	}
+	return fmt.Sprintf("/%s-%s", tt.SubsetID, tt.FontName)
+
 }
 
 // Ascender returns the /Ascent value for the PDF file

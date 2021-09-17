@@ -2,73 +2,45 @@ package opentype
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 )
-
-func TestEncodeCffDictData(t *testing.T) {
-	testdata := []struct {
-		val int
-		res []byte
-	}{
-		{0, []byte{0x8b}},
-		{100, []byte{0xef}},
-		{1000, []byte{0xfa, 0x7c}},
-		{-1000, []byte{0xfe, 0x7c}},
-		{10000, []byte{0x1c, 0x27, 0x10}},
-		{-10000, []byte{0x1c, 0xd8, 0xf0}},
-		{100000, []byte{0x1d, 0x00, 0x01, 0x86, 0xa0}},
-		{-100000, []byte{0x1d, 0xff, 0xfe, 0x79, 0x60}},
-	}
-	for _, td := range testdata {
-		if ret := cffDictEncodeNumber(td.val); bytes.Compare(ret, td.res) != 0 {
-			t.Errorf("cffDictEncodeNumber(%d) = %x, want %x", td.val, ret, td.res)
-		}
-	}
-
-	testdataf := []struct {
-		val float64
-		res []byte
-	}{
-		{0, []byte{0x8b}}, // non-float
-		{-0.005, []byte{0x1e, 0xe5, 0xc3, 0xff}},
-		{-0.025, []byte{0x1e, 0xe2, 0xa5, 0xc2, 0xff}},
-		{25.73, []byte{0x1e, 0x2a, 0x57, 0x3b, 0x1f}},
-	}
-	for _, td := range testdataf {
-		if ret := cffDictEncodeFloat(td.val); bytes.Compare(ret, td.res) != 0 {
-			t.Errorf("cffDictEncodeFloat(%f) = %x, want %x", td.val, ret, td.res)
-		}
-	}
-}
 
 func TestSubsetCFF(t *testing.T) {
 	f, err := os.Open(filepath.Join("testdata", "customfont.otf"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	font, err := Open(f)
+	font, err := Open(f, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	font.ReadTables()
-	bcff, err := font.ReadTableData("CFF ")
+	origTblBytes, err := font.ReadTableData("CFF ")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var cffBuffer bytes.Buffer
 	font.WriteTable(&cffBuffer, "CFF ")
 
-	if expected, got := len(bcff), cffBuffer.Len(); expected != got {
+	if expected, got := len(origTblBytes), cffBuffer.Len(); expected != got {
 		t.Errorf("len(bw) = %d, want %d (table CFF)", got, expected)
 	}
-
-	if cmp := bytes.Compare(bcff, cffBuffer.Bytes()); cmp != 0 {
+	if got, cmp := cffBuffer.Bytes(), bytes.Compare(origTblBytes, cffBuffer.Bytes()); cmp != 0 {
 		t.Errorf("compare = %d, want 0 (table CFF)", cmp)
-		// fmt.Println(bcff)
-		// fmt.Println(cffBuffer.Bytes())
+		maxOrig := 20
+		maxGot := 20
 
+		if l := len(origTblBytes); l < maxOrig {
+			maxOrig = l
+		}
+		if l := len(got); l < maxGot {
+			maxGot = l
+		}
+		fmt.Println(origTblBytes[:maxOrig])
+		fmt.Println(got[:maxGot])
 	}
 
 }
@@ -78,7 +50,7 @@ func TestCreateLoca(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	font, err := Open(f)
+	font, err := Open(f, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +81,7 @@ func TestCompareTables(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	font, err := Open(f)
+	font, err := Open(f, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +122,7 @@ func TestWriteFont(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	font, err := Open(f)
+	font, err := Open(f, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +149,7 @@ func TestSubset(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	font, err := Open(f)
+	font, err := Open(f, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
