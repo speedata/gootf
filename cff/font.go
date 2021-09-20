@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"sort"
 )
 
 // Top DICT Data - see CFF spec 9 p. 14
@@ -24,60 +25,60 @@ func (f *Font) parseDict(dict []byte) {
 		if b0 == 0 {
 			// version
 			f.version = SID(operands[0])
-			log.WithField("version", f.version).Trace("dict read version")
+			// log.WithField("version", f.version).Trace("dict read version")
 			operands = operands[:0]
 		} else if b0 == 1 {
-			log.Trace("dict read notice")
 			// notice
 			f.notice = SID(operands[0])
+			// log.WithField("notice", f.notice).Trace("dict read notice")
 			operands = operands[:0]
 		} else if b0 == 2 {
 			// fullname
-			log.Trace("dict read fullname")
+			// log.Trace("dict read fullname")
 			f.fullname = SID(operands[0])
 			operands = operands[:0]
 		} else if b0 == 3 {
-			log.Trace("dict read familyname")
+			// log.Trace("dict read familyname")
 			f.familyname = SID(operands[0])
 			operands = operands[:0]
 		} else if b0 == 4 {
 			// weight
-			log.Trace("dict read weight")
+			// log.Trace("dict read weight")
 			f.weight = SID(operands[0])
 			operands = operands[:0]
 		} else if b0 == 5 {
 			// font bbox
-			log.Trace("dict read font bbox")
 			f.bbox = make([]int, 4)
 			copy(f.bbox, operands)
+			// log.WithField("bbox", f.bbox).Trace("dict read font bbox")
 			operands = operands[:0]
 		} else if b0 == 6 {
 			// Blue Values
 			f.bluevalues = make([]int, len(operands))
 			copy(f.bluevalues, operands)
-			log.WithField("val", f.bluevalues).Trace("dict read blue values")
+			// log.WithField("val", f.bluevalues).Trace("dict read blue values")
 			operands = operands[:0]
 		} else if b0 == 7 {
 			f.otherblues = make([]int, len(operands))
 			copy(f.otherblues, operands)
-			log.WithField("val", f.otherblues).Trace("dict read other blues")
+			// log.WithField("val", f.otherblues).Trace("dict read other blues")
 			operands = operands[:0]
 		} else if b0 == 8 {
 			f.familyblues = make([]int, len(operands))
 			copy(f.familyblues, operands)
-			log.WithField("val", f.familyblues).Trace("dict read familyblues")
+			// log.WithField("val", f.familyblues).Trace("dict read familyblues")
 			operands = operands[:0]
 		} else if b0 == 9 {
 			f.familyotherblues = make([]int, len(operands))
 			copy(f.familyotherblues, operands)
-			log.WithField("val", f.familyotherblues).Trace("dict read family other blues")
+			// log.WithField("val", f.familyotherblues).Trace("dict read family other blues")
 			operands = operands[:0]
 		} else if b0 == 10 {
-			log.Trace("dict read stdhw")
+			// log.Trace("dict read stdhw")
 			f.stdhw = operands[0]
 			operands = operands[:0]
 		} else if b0 == 11 {
-			log.Trace("dict read stdvw")
+			// log.Trace("dict read stdvw")
 			f.stdvw = operands[0]
 			operands = operands[:0]
 		} else if b0 == 12 {
@@ -86,53 +87,53 @@ func (f *Font) parseDict(dict []byte) {
 			b1 := dict[pos]
 			switch b1 {
 			case 0:
-				log.Trace("dict read copyright")
+				// log.Trace("dict read copyright")
 				f.copyright = SID(operands[0])
 			case 3:
-				log.Trace("dict read underline position")
+				// log.Trace("dict read underline position")
 				if len(operands) > 0 {
 					f.underlinePosition = float64(operands[0])
 				} else if len(operandsf) > 0 {
 					f.underlinePosition = operandsf[0]
 				}
 			case 4:
-				log.Trace("dict read underline thickness")
+				// log.Trace("dict read underline thickness")
 				if len(operands) > 0 {
 					f.underlineThickness = float64(operands[0])
 				} else if len(operandsf) > 0 {
 					f.underlineThickness = operandsf[0]
 				}
 			case 8:
-				log.Trace("dict read stroke width")
+				// log.Trace("dict read stroke width")
 				// StrokeWidth
 			case 9:
 				f.bluescale = operandsf[0]
-				log.WithField("val", f.bluescale).Trace("dict read blue scale")
+				// log.WithField("val", f.bluescale).Trace("dict read blue scale")
 				operands = operands[:0]
 			case 10:
-				log.Trace("dict read blue shift")
+				// log.Trace("dict read blue shift")
 				f.blueshift = operands[0]
 				operands = operands[:0]
 			case 11:
 				f.bluefuzz = operands[0]
-				log.WithField("val", f.bluefuzz).Trace("dict read blue fuzz")
+				// log.WithField("val", f.bluefuzz).Trace("dict read blue fuzz")
 				operands = operands[:0]
 			case 12:
 				f.stemsnaph = make([]int, len(operands))
 				copy(f.stemsnaph, operands)
-				log.WithField("val", f.stemsnaph).Trace("dict read stemsnaph")
+				// log.WithField("val", f.stemsnaph).Trace("dict read stemsnaph")
 				operands = operands[:0]
 			case 13:
 				f.stemsnapv = make([]int, len(operands))
 				copy(f.stemsnapv, operands)
-				log.WithField("val", f.stemsnapv).Trace("dict read stemsnapv")
+				// log.WithField("val", f.stemsnapv).Trace("dict read stemsnapv")
 				operands = operands[:0]
 			case 19:
-				log.Trace("dict read randomseet")
+				// log.Trace("dict read randomseet")
 				f.initialRandomSeed = operands[0]
 				operands = operands[:0]
 			case 30:
-				log.Trace("dict registry ordering")
+				// log.Trace("dict registry ordering")
 				// ROS
 				f.registry = SID(operands[0])
 				f.ordering = SID(operands[1])
@@ -140,21 +141,21 @@ func (f *Font) parseDict(dict []byte) {
 				operands = operands[:2]
 			case 34:
 				// CID count
-				log.Trace("dict read cidcount")
+				// log.Trace("dict read cidcount")
 				f.cidcount = operands[0]
 				operands = operands[:0]
 			case 36:
-				log.Trace("dict read fdarray")
+				// log.Trace("dict read fdarray")
 				// FDArray
 				f.fdarray = int64(operands[0])
 				operands = operands[:0]
 			case 37:
-				log.Trace("dict read fdselect")
+				// log.Trace("dict read fdselect")
 				// FDSelect
 				f.fdselect = int64(operands[0])
 				operands = operands[:0]
 			case 38:
-				log.Trace("dict font name")
+				// log.Trace("dict font name")
 				// fontname
 				f.name = SID(operands[0])
 				operands = operands[:0]
@@ -165,39 +166,40 @@ func (f *Font) parseDict(dict []byte) {
 			operandsf = operandsf[:0]
 		} else if b0 == 13 {
 			// unique id
-			log.Trace("dict read uid")
+			// log.Trace("dict read uid")
 			f.uniqueid = operands[0]
 			operands = operands[:0]
 		} else if b0 == 15 {
 			// charset
-			log.Trace("dict read charset offset")
 			f.charsetOffset = int64(operands[0])
+			// log.WithField("off", f.charsetOffset).Trace("dict read charset offset")
 			operands = operands[:0]
 		} else if b0 == 16 {
 			f.encodingOffset = operands[0]
-			log.WithField("offset", f.encodingOffset).Trace("dict read encoding offset")
+			// log.WithField("off", f.encodingOffset).Trace("dict read encoding offset")
 			operands = operands[:0]
 		} else if b0 == 17 {
 			// charstrings (type 2 instructions)
-			log.Trace("dict read charstring offset")
 			f.charstringsOffset = int64(operands[0])
+			// log.WithField("off", f.charstringsOffset).Trace("dict read charstringOffset")
 			operands = operands[:0]
 		} else if b0 == 18 {
-			log.Trace("dict read  privatedictsize / privatedictoffset")
+			// log.Trace("dict read  privatedictsize / privatedictoffset")
 			f.privatedictsize = operands[0]
 			f.privatedictoffset = int64(operands[1])
+			// log.WithFields(logrus.Fields{"size": f.privatedictsize, "off": f.privatedictoffset}).Trace("read private dict")
 			operands = operands[:1]
 		} else if b0 == 19 {
 			f.subrsOffset = operands[0]
-			log.WithField("off", f.subrsOffset).Trace("dict read subr")
+			// log.WithField("off", f.subrsOffset).Trace("dict read subr")
 			operands = operands[:0]
 		} else if b0 == 20 {
 			f.defaultWidthX = operands[0]
-			log.WithField("defaultWidthX", f.defaultWidthX).Trace("dict read defaultWidthX")
+			// log.WithField("defaultWidthX", f.defaultWidthX).Trace("dict read defaultWidthX")
 			operands = operands[:0]
 		} else if b0 == 21 {
 			f.nominalWidthX = operands[0]
-			log.WithField("nominalWidthX", f.nominalWidthX).Trace("dict read nominalWidthX")
+			// log.WithField("nominalWidthX", f.nominalWidthX).Trace("dict read nominalWidthX")
 			operands = operands[:0]
 		} else if b0 == 28 {
 			b1 := dict[pos+1]
@@ -309,7 +311,7 @@ func (f *Font) readSubrIndex(r io.ReadSeeker) error {
 }
 
 func (f *Font) readEncoding(r io.ReadSeeker) error {
-	log.Trace("Read encoding")
+	// log.Trace("Read encoding")
 	var err error
 	f.encoding = make(map[int]int)
 
@@ -358,11 +360,10 @@ func (f *Font) readCharset(r io.ReadSeeker) error {
 	f.charset = make([]SID, numGlyphs)
 
 	read(r, &f.charsetFormat)
-
-	log.WithField("charset format", f.charsetFormat).Trace("readCharset")
+	// log.WithField("charset format", f.charsetFormat).Trace("readCharset")
 	switch f.charsetFormat {
 	case 0:
-		if f.IsCIDFont() {
+		if f.IsCIDFont() && false {
 			panic("niy")
 		} else {
 			var sid uint16
@@ -410,7 +411,7 @@ func (f *Font) readPrivateDict(r io.ReadSeeker) error {
 
 // GetRawIndexData returns a byte slice of the index
 func (f *Font) GetRawIndexData(r io.ReadSeeker, index mainIndex) ([]byte, error) {
-	log.Trace("GetRawIndexData")
+	// log.Trace("GetRawIndexData")
 	var indexStart int64
 	var err error
 
@@ -501,4 +502,66 @@ func (f *Font) parseIndex(r io.ReadSeeker, index mainIndex) error {
 // IsCIDFont returns true if the character encoding is based on CID instead of SID
 func (f *Font) IsCIDFont() bool {
 	return f.fdselect != 0
+}
+
+// Subset changes the font so that only the given code points remain in the font. Subset must only be called once.
+func (f *Font) Subset(globalSubr [][]byte, codepoints []int) {
+	sort.Ints(codepoints)
+	cpIdx := 0
+	charstringsIdx := 0
+	for {
+		cp := codepoints[cpIdx]
+		for j := 1; j+charstringsIdx < cp; j++ {
+			f.CharStrings[j+charstringsIdx] = []byte{0xe}
+			f.charset[j+charstringsIdx] = 0
+		}
+		cpIdx++
+		charstringsIdx = cp
+		if cpIdx >= len(codepoints) {
+			break
+		}
+	}
+
+	lastcp := codepoints[len(codepoints)-1]
+	f.CharStrings = f.CharStrings[:lastcp+1]
+	f.charset = f.charset[:lastcp+1]
+
+	for _, cp := range codepoints {
+		cs := f.CharStrings[cp]
+		getSubrsIndex(globalSubr, f.subrsIndex, cs)
+	}
+
+	clearSubr(globalSubr, usedGlobalSubrsMap)
+	clearSubr(f.subrsIndex, usedLocalSubrsMap)
+}
+
+func clearSubr(subr [][]byte, usedSubrs map[int]bool) {
+	if len(usedSubrs) == 0 {
+		return
+	}
+	usedSubrSlice := []int{}
+
+	for k := range usedSubrs {
+		usedSubrSlice = append(usedSubrSlice, k)
+	}
+
+	sort.Ints(usedSubrSlice)
+
+	subrIdx := 0
+	i := 0
+	for {
+		subri := usedSubrSlice[subrIdx]
+		for j := 0; j+i < subri; j++ {
+			subr[j+i] = []byte{}
+		}
+		i = subri + 1
+		subrIdx++
+
+		if subrIdx >= len(usedSubrSlice) {
+			break
+		}
+	}
+	lastidx := usedSubrSlice[len(usedSubrSlice)-1]
+	subr = subr[:lastidx+1]
+
 }

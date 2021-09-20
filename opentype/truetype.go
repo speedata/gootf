@@ -114,6 +114,7 @@ func (tt *Font) readTable(tbl string) error {
 		if err != nil {
 			return err
 		}
+		tt.CFF.Fontindex = tt.fontindex
 	case "head":
 		if err = tt.readHead(thistable); err != nil {
 			return err
@@ -774,22 +775,27 @@ func (tt *Font) readCmap(tbl tableOffsetLength) error {
 		// Trimmed table mapping
 		// ignore
 		case 12:
-			// Segmented coverage
-			var zero uint16
-			var length, language, ngroups uint32
-			var startCharCode, endCharCode, startGlyphID uint32
-			tt.read(&zero)
-			tt.read(&length)
-			tt.read(&language)
-			tt.read(&ngroups)
+			if len(tt.ToUni) == 0 {
+				tt.ToUni = make(map[int]rune, 256)
+				tt.ToCodepoint = make(map[rune]int, 256)
 
-			for i := uint32(0); i < ngroups; i++ {
-				tt.read(&startCharCode)
-				tt.read(&endCharCode)
-				tt.read(&startGlyphID)
-				for i, c := 0, startCharCode; c <= endCharCode; i, c = i+1, c+1 {
-					tt.ToUni[int(startGlyphID)+i] = rune(c)
-					tt.ToCodepoint[rune(c)] = int(startGlyphID) + i
+				// Segmented coverage
+				var zero uint16
+				var length, language, ngroups uint32
+				var startCharCode, endCharCode, startGlyphID uint32
+				tt.read(&zero)
+				tt.read(&length)
+				tt.read(&language)
+				tt.read(&ngroups)
+
+				for i := uint32(0); i < ngroups; i++ {
+					tt.read(&startCharCode)
+					tt.read(&endCharCode)
+					tt.read(&startGlyphID)
+					for i, c := 0, startCharCode; c <= endCharCode; i, c = i+1, c+1 {
+						tt.ToUni[int(startGlyphID)+i] = rune(c)
+						tt.ToCodepoint[rune(c)] = int(startGlyphID) + i
+					}
 				}
 			}
 		default:
@@ -1055,7 +1061,7 @@ func (tt *Font) WriteSubset(w io.Writer) error {
 func (tt *Font) subsetCFF(codepoints []int) (string, error) {
 	tt.SubsetID = getCharTag(codepoints)
 	tt.subsetCodepoints = codepoints
-
+	tt.CFF.Subset(codepoints)
 	return "", nil
 }
 
@@ -1145,7 +1151,7 @@ begincmap
 `)
 	fmt.Fprintf(&b, "<0001><%04X>\n", numGlyphs)
 	b.WriteString("endcodespacerange\n")
-	fmt.Fprintf(&b, "%d beginbfchar\n", numGlyphs)
+	fmt.Fprintf(&b, "%d beginbfchar\n", len(tt.subsetCodepoints))
 	for _, cp := range tt.subsetCodepoints {
 		fmt.Fprintf(&b, "<%04X><%04X>\n", cp, tt.ToUni[cp])
 	}

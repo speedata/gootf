@@ -74,16 +74,14 @@ func readOffset(r io.Reader, offsetsize uint8) uint32 {
 
 // cffReadIndexData reads a number of slices with data.
 func cffReadIndexData(r io.Reader, name string) [][]byte {
-	log.WithField("idx", name).Trace("CFF read index")
+	// log.WithField("idx", name).Trace("CFF read index")
 	var count uint16
 	read(r, &count)
-	log.WithField("count", count).Trace("index count")
 	if count == 0 {
 		return [][]byte{}
 	}
 	var offsetSize uint8
 	read(r, &offsetSize)
-	log.WithField("offsetsize", offsetSize).Trace("read")
 	offsets := make([]int, count+1)
 	for i := 0; i < int(count+1); i++ {
 		offsets[i] = int(readOffset(r, offsetSize))
@@ -238,7 +236,6 @@ func ParseCFFData(r io.ReadSeeker) (*CFF, error) {
 	read(r, &cff.HdrSize)
 	read(r, &cff.offsetSize)
 	r.Seek(int64(cff.HdrSize), io.SeekStart)
-
 	if err := cff.parseIndex(r, NameIndex); err != nil {
 		return nil, err
 	}

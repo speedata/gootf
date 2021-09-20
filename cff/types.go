@@ -15,11 +15,36 @@ const (
 	LocalSubrsIndex
 )
 
+func (mi mainIndex) String() string {
+	switch mi {
+	case NameIndex:
+		return "NameIndex"
+	case DictIndex:
+		return "DictIndex"
+	case StringIndex:
+		return "StringIndex"
+	case GlobalSubrIndex:
+		return "GlobalSubrIndex"
+	case CharSet:
+		return "CharSet"
+	case Encoding:
+		return "Encoding"
+	case CharStringsIndex:
+		return "CharStringsIndex"
+	case PrivateDict:
+		return "PrivateDict"
+	case LocalSubrsIndex:
+		return "LocalSubrsIndex"
+	}
+	return ""
+}
+
 // CFF represents a CFF font file
 type CFF struct {
 	Major           uint8
 	Minor           uint8
 	HdrSize         uint8
+	Fontindex       int
 	offsetSize      uint8
 	fontnames       []string
 	globalSubrIndex [][]byte
