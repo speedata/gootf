@@ -455,6 +455,7 @@ func (tt *Font) writeOs2(w io.Writer) error {
 }
 
 func (tt *Font) readHead(tbl tableOffsetLength) error {
+
 	head := Head{}
 
 	tt.read(&head.MajorVersion)
@@ -463,7 +464,11 @@ func (tt *Font) readHead(tbl tableOffsetLength) error {
 	tt.read(&head.ChecksumAdjustment)
 	tt.read(&head.MagicNumber)
 	tt.read(&head.Flags)
-	tt.read(&head.UnitsPerEm)
+	var upem uint16
+	tt.read(&upem)
+	if upem != 0 {
+		head.UnitsPerEm = upem
+	}
 	tt.read(&head.Created)
 	tt.read(&head.Modified)
 	tt.read(&head.XMin)
@@ -560,6 +565,7 @@ func (tt *Font) writeHead(w io.Writer) error {
 	return nil
 }
 
+// getGlyphComponentIds returns a slice with all components necessary to render the given glyph.
 func (tt *Font) getGlyphComponentIds(codepoint int) (components []int) {
 
 	if codepoint == 0 {
@@ -915,6 +921,7 @@ func Open(r io.ReadSeeker, fontindex int) (*Font, error) {
 		// OK
 	case 0x4F54544F:
 		tt.IsCFF = true
+		tt.UnitsPerEM = 1000
 		// OpenType CFF
 	default:
 		return nil, fmt.Errorf("unknown magic %v", tt.sfntVersion)
@@ -1058,24 +1065,40 @@ func (tt *Font) WriteSubset(w io.Writer) error {
 
 	return nil
 }
-func (tt *Font) subsetCFF(codepoints []int) (string, error) {
+func (tt *Font) subsetCFF(codepoints []int) error {
 	tt.SubsetID = getCharTag(codepoints)
 	tt.subsetCodepoints = codepoints
 	tt.CFF.Subset(codepoints)
-	return "", nil
+	return nil
 }
 
-func (tt *Font) subsetTrueType(codepoints []int) (string, error) {
+// GlyphAdvance returns the width of the glyph
+func (tt *Font) GlyphAdvance(idx int) (int, error) {
+	return int(tt.advanceWidth[idx]), nil
+}
+
+// GetIndex returns the internal code point for this rune
+func (tt *Font) GetIndex(r rune) (int, error) {
+	return tt.ToCodepoint[r], nil
+}
+
+// subsetTrueType removes all data from the font file that is not necessary to render the given copde points.
+func (tt *Font) subsetTrueType(codepoints []int) error {
+	// the SubsetID is a random six letter string
 	tt.SubsetID = getCharTag(codepoints)
+
 	codepointsMap := make(map[int]struct{}, len(codepoints))
+
 	for _, cp := range codepoints {
 		codepointsMap[cp] = struct{}{}
 	}
-
+	// TrueType fonts can contain composite glyphs. For example the the ö could be combined by using the glyphs o and ¨
 	additionalGlyphs := []int{}
 	for _, cp := range codepoints {
 		additionalGlyphs = append(additionalGlyphs, tt.getGlyphComponentIds(cp)...)
 	}
+
+	// now that we have the “sub” glyphs needed for
 	for _, cp := range additionalGlyphs {
 		codepointsMap[cp] = struct{}{}
 	}
@@ -1091,6 +1114,8 @@ func (tt *Font) subsetTrueType(codepoints []int) (string, error) {
 	// so the glyphs that are to be placed are ö, o and dieresis
 	maxCP := codepoints[len(codepoints)-1] + 1
 
+	// the codepoints not used in the subset (or used from one of these glyphs) are
+	// replaced by an empty glyph.
 	glyphs := make([]Glyph, maxCP)
 	emptyGlyph := Glyph{}
 	for i, c := 0, 0; i < maxCP; i++ {
@@ -1110,13 +1135,12 @@ func (tt *Font) subsetTrueType(codepoints []int) (string, error) {
 	tt.Head.IndexToLocFormat = 1
 	tt.Hhea.NumberOfHMetrics = uint16(maxCP)
 	tt.subsetCodepoints = codepoints
-	return "", nil
+	return nil
 
 }
 
 // Subset removes all data from the font except the one needed for the given code points.
-// Subset should be only called once.
-func (tt *Font) Subset(codepoints []int) (string, error) {
+func (tt *Font) Subset(codepoints []int) error {
 	if tt.IsCFF {
 		return tt.subsetCFF(codepoints)
 	}

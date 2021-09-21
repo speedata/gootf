@@ -2,48 +2,10 @@ package opentype
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 )
-
-func TestSubsetCFF(t *testing.T) {
-	f, err := os.Open(filepath.Join("testdata", "customfont.otf"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	font, err := Open(f, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	font.ReadTables()
-	origTblBytes, err := font.ReadTableData("CFF ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var cffBuffer bytes.Buffer
-	font.WriteTable(&cffBuffer, "CFF ")
-
-	if expected, got := len(origTblBytes), cffBuffer.Len(); expected != got {
-		t.Errorf("len(bw) = %d, want %d (table CFF)", got, expected)
-	}
-	if got, cmp := cffBuffer.Bytes(), bytes.Compare(origTblBytes, cffBuffer.Bytes()); cmp != 0 {
-		t.Errorf("compare = %d, want 0 (table CFF)", cmp)
-		maxOrig := 20
-		maxGot := 20
-
-		if l := len(origTblBytes); l < maxOrig {
-			maxOrig = l
-		}
-		if l := len(got); l < maxGot {
-			maxGot = l
-		}
-		fmt.Println(origTblBytes[:maxOrig])
-		fmt.Println(got[:maxGot])
-	}
-
-}
 
 func TestCreateLoca(t *testing.T) {
 	f, err := os.Open(filepath.Join("testdata", "CrimsonPro-Regular.ttf"))
@@ -190,5 +152,62 @@ func TestSubset(t *testing.T) {
 	if got, want := buf.Len(), 5800; got != want {
 		t.Errorf("len(buf) = %d, want %d", got, want)
 	}
+}
 
+func TestWidths(t *testing.T) {
+	f, err := os.Open(filepath.Join("testdata", "CrimsonPro-Regular.ttf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	font, err := Open(f, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	font.ReadTables()
+	data := []struct {
+		idx int
+		wd  int
+	}{
+		{76, 672},
+		{280, 450},
+		{340, 269},
+	}
+	for _, d := range data {
+		adv, err := font.GlyphAdvance(d.idx)
+		if err != nil {
+			t.Error(err)
+		}
+		if adv != d.wd {
+			t.Errorf("font.GlyphAdvance(%d) = %d, want %d", d.idx, adv, d.wd)
+		}
+	}
+}
+
+func TestIndex(t *testing.T) {
+	f, err := os.Open(filepath.Join("testdata", "CrimsonPro-Regular.ttf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	font, err := Open(f, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	font.ReadTables()
+	data := []struct {
+		r   rune
+		idx int
+	}{
+		{'H', 76},
+		{'e', 280},
+		{'l', 340},
+	}
+	for _, d := range data {
+		idx, err := font.GetIndex(d.r)
+		if err != nil {
+			t.Error(err)
+		}
+		if idx != d.idx {
+			t.Errorf("font.GetIndex(%d) = %d, want %d", d.r, idx, d.idx)
+		}
+	}
 }

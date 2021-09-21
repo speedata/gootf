@@ -110,7 +110,6 @@ func (c *CFF) readNameIndex(r io.Reader) error {
 	idx := cffReadIndexData(r, "name")
 	c.fontnames = []string{}
 	for _, entry := range idx {
-		log.WithField("name", string(entry)).Trace("read name")
 		c.fontnames = append(c.fontnames, string(entry))
 	}
 	return nil
