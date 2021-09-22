@@ -329,17 +329,19 @@ func (tt *Font) writeHhea(w io.Writer) error {
 // readHmtx reads the hmtx (horizontal metrics) table
 func (tt *Font) readHmtx(tbl tableOffsetLength) error {
 	numMetrics := tt.Hhea.NumberOfHMetrics
-	// todo: if numMetrics < numGlyphs { read lsb }
-	// numGlyphs := tt.Maxp.NumGlyphs
 	numLSB := tt.Maxp.NumGlyphs - numMetrics
-	tt.advanceWidth = make([]uint16, numMetrics)
+	tt.advanceWidth = make([]uint16, tt.Maxp.NumGlyphs)
 	tt.lsb = make([]int16, numMetrics+numLSB)
+
 	for i := 0; i < int(numMetrics); i++ {
 		tt.read(&tt.advanceWidth[i])
 		tt.read(&tt.lsb[i])
 	}
+
 	for i := 0; i < int(numLSB); i++ {
 		tt.read(&tt.lsb[i+int(numMetrics)])
+		tt.advanceWidth[i+int(numMetrics)] = tt.advanceWidth[int(numMetrics)-1]
+
 	}
 	return nil
 }
@@ -468,6 +470,7 @@ func (tt *Font) readHead(tbl tableOffsetLength) error {
 	tt.read(&upem)
 	if upem != 0 {
 		head.UnitsPerEm = upem
+		tt.UnitsPerEM = upem
 	}
 	tt.read(&head.Created)
 	tt.read(&head.Modified)
