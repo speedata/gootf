@@ -56,7 +56,7 @@ func TestEncodeCffDictData(t *testing.T) {
 		{-100000, []byte{0x1d, 0xff, 0xfe, 0x79, 0x60}},
 	}
 	for _, td := range testdata {
-		if ret := cffDictEncodeNumber(td.val); bytes.Compare(ret, td.res) != 0 {
+		if ret := cffDictEncodeNumber(int64(td.val)); bytes.Compare(ret, td.res) != 0 {
 			t.Errorf("cffDictEncodeNumber(%d) = %x, want %x", td.val, ret, td.res)
 		}
 	}

@@ -211,8 +211,8 @@ func (c *CFF) WriteCFFData(w io.Writer) error {
 	cf.encodingOffset = 0
 
 	// the encoded size of the offsets can change. We calculate the delta and add this to the baselen
-	prevLen := len(cffDictEncodeNumber(int(cf.charstringsOffset))) + len(cffDictEncodeNumber(int(cf.charsetOffset))) + len(cffDictEncodeNumber(int(cf.privatedictoffset)))
-	newLen := len(cffDictEncodeNumber(baselen+fi.CharStringsOffset)) + len(cffDictEncodeNumber(baselen+fi.CharSetOffset)) + len(cffDictEncodeNumber(baselen+fi.PrivateDictOffset))
+	prevLen := len(cffDictEncodeNumber(int64(cf.charstringsOffset))) + len(cffDictEncodeNumber(int64(cf.charsetOffset))) + len(cffDictEncodeNumber(int64(cf.privatedictoffset)))
+	newLen := len(cffDictEncodeNumber(int64(baselen+fi.CharStringsOffset))) + len(cffDictEncodeNumber(int64(baselen+fi.CharSetOffset))) + len(cffDictEncodeNumber(int64(baselen+fi.PrivateDictOffset)))
 	delta := newLen - prevLen
 
 	baselen += delta
@@ -286,7 +286,7 @@ func (f *Font) fontInfo() (*fontinfo, error) {
 // cffDictEncodeFloat encodes a number. If the number is an integer number, it will be encoded by cffDictEncodeNumber().
 func cffDictEncodeFloat(num float64) []byte {
 	if math.Abs(float64(int(num))-num) < 0.0001 {
-		return cffDictEncodeNumber(int(num))
+		return cffDictEncodeNumber(int64(num))
 	}
 
 	beforeDecimal := true
@@ -339,7 +339,7 @@ func cffDictEncodeFloat(num float64) []byte {
 	return ret
 }
 
-func cffDictEncodeNumber(num int) []byte {
+func cffDictEncodeNumber(num int64) []byte {
 	if num >= -107 && num <= 107 {
 		return []byte{byte(num) + 139}
 	} else if num >= 108 && num <= 1131 {
@@ -373,45 +373,45 @@ func (f *Font) cffEncodeTopDict() []byte {
 	var b []byte
 	if i := f.version; i != 0 {
 		// log.WithField("fnt.version", f.version).Trace("dict write version")
-		b = append(b, cffDictEncodeNumber(int(i))...)
+		b = append(b, cffDictEncodeNumber(int64(i))...)
 		b = append(b, 0)
 	}
 	if i := f.notice; i != 0 {
 		// log.WithField("notice", i).Trace("dict write notice")
-		b = append(b, cffDictEncodeNumber(int(i))...)
+		b = append(b, cffDictEncodeNumber(int64(i))...)
 		b = append(b, 1)
 	}
 	if i := f.copyright; i != 0 {
 		// log.Trace("dict write copyright")
-		b = append(b, cffDictEncodeNumber(int(i))...)
+		b = append(b, cffDictEncodeNumber(int64(i))...)
 		b = append(b, 12, 0)
 	}
 	if i := f.fullname; i != 0 {
 		// log.Trace("dict write full name")
-		b = append(b, cffDictEncodeNumber(int(i))...)
+		b = append(b, cffDictEncodeNumber(int64(i))...)
 		b = append(b, 2)
 	}
 	if i := f.familyname; i != 0 {
 		// log.Trace("dict write family name")
-		b = append(b, cffDictEncodeNumber(int(i))...)
+		b = append(b, cffDictEncodeNumber(int64(i))...)
 		b = append(b, 3)
 	}
 	if i := f.weight; i != 0 {
 		// log.WithField("i", i).Trace("dict write weight")
-		b = append(b, cffDictEncodeNumber(int(i))...)
+		b = append(b, cffDictEncodeNumber(int64(i))...)
 		b = append(b, 4)
 	}
 	if num := f.uniqueid; num != 0 {
 		// log.WithField("num", num).Trace("dict write uid")
-		b = append(b, cffDictEncodeNumber(num)...)
+		b = append(b, cffDictEncodeNumber(int64(num))...)
 		b = append(b, 13)
 	}
 	if f.bbox[0] != 0 || f.bbox[1] != 0 || f.bbox[2] != 0 || f.bbox[3] != 0 {
 		// log.WithField("bbox", f.bbox).Trace("dict write font bbox")
-		b = append(b, cffDictEncodeNumber(f.bbox[0])...)
-		b = append(b, cffDictEncodeNumber(f.bbox[1])...)
-		b = append(b, cffDictEncodeNumber(f.bbox[2])...)
-		b = append(b, cffDictEncodeNumber(f.bbox[3])...)
+		b = append(b, cffDictEncodeNumber(int64(f.bbox[0]))...)
+		b = append(b, cffDictEncodeNumber(int64(f.bbox[1]))...)
+		b = append(b, cffDictEncodeNumber(int64(f.bbox[2]))...)
+		b = append(b, cffDictEncodeNumber(int64(f.bbox[3]))...)
 		b = append(b, 5)
 	}
 	if num := f.underlinePosition; num != -100 {
@@ -426,23 +426,23 @@ func (f *Font) cffEncodeTopDict() []byte {
 	}
 	if num := f.charsetOffset; num != 0 {
 		// log.WithField("off", num).Trace("dict write charsetoffset")
-		b = append(b, cffDictEncodeNumber(int(num))...)
+		b = append(b, cffDictEncodeNumber(int64(num))...)
 		b = append(b, 15)
 	}
 	if num := f.encodingOffset; num != 0 {
 		// log.WithField("off", num).Trace("dict write encodingoffset")
-		b = append(b, cffDictEncodeNumber(num)...)
+		b = append(b, cffDictEncodeNumber(int64(num))...)
 		b = append(b, 16)
 	}
 	if num := f.charstringsOffset; num != 0 {
-		b = append(b, cffDictEncodeNumber(int(num))...)
+		b = append(b, cffDictEncodeNumber(int64(num))...)
 		// log.WithField("off", num).Trace("dict write charstring offset")
 		b = append(b, 17)
 	}
 	if num := f.privatedictoffset; num != 0 {
 		// log.WithFields(logrus.Fields{"size": f.privatedictsize, "off": f.privatedictoffset}).Trace("dict write privatedictsize, offset")
-		b = append(b, cffDictEncodeNumber(f.privatedictsize)...)
-		b = append(b, cffDictEncodeNumber(int(num))...)
+		b = append(b, cffDictEncodeNumber(int64(f.privatedictsize))...)
+		b = append(b, cffDictEncodeNumber(int64(num))...)
 		b = append(b, 18)
 	}
 	return b
@@ -454,28 +454,28 @@ func (f *Font) cffEncodePrivateDict() []byte {
 	if len(f.bluevalues) > 0 {
 		// log.WithField("val", f.bluevalues).Trace("dict write bluevalues")
 		for _, v := range f.bluevalues {
-			b = append(b, cffDictEncodeNumber(v)...)
+			b = append(b, cffDictEncodeNumber(int64(v))...)
 		}
 		b = append(b, 6)
 	}
 	if len(f.otherblues) > 0 {
 		// log.WithField("val", f.otherblues).Trace("dict write otherblues")
 		for _, v := range f.otherblues {
-			b = append(b, cffDictEncodeNumber(v)...)
+			b = append(b, cffDictEncodeNumber(int64(v))...)
 		}
 		b = append(b, 7)
 	}
 	if len(f.familyblues) > 0 {
 		// log.WithField("val", f.familyblues).Trace("dict write familyblues")
 		for _, v := range f.familyblues {
-			b = append(b, cffDictEncodeNumber(v)...)
+			b = append(b, cffDictEncodeNumber(int64(v))...)
 		}
 		b = append(b, 8)
 	}
 	if len(f.familyotherblues) > 0 {
 		// log.WithField("val", f.familyotherblues).Trace("dict write familyotherblues")
 		for _, v := range f.familyotherblues {
-			b = append(b, cffDictEncodeNumber(v)...)
+			b = append(b, cffDictEncodeNumber(int64(v))...)
 		}
 		b = append(b, 9)
 	}
@@ -503,14 +503,14 @@ func (f *Font) cffEncodePrivateDict() []byte {
 	if len(f.stemsnaph) > 0 {
 		// log.WithField("val", f.stemsnaph).Trace("dict write stemsnaph")
 		for _, v := range f.stemsnaph {
-			b = append(b, cffDictEncodeNumber(v)...)
+			b = append(b, cffDictEncodeNumber(int64(v))...)
 		}
 		b = append(b, 12, 12)
 	}
 	if len(f.stemsnapv) > 0 {
 		// log.WithField("val", f.stemsnapv).Trace("dict write stemsnapv")
 		for _, v := range f.stemsnapv {
-			b = append(b, cffDictEncodeNumber(v)...)
+			b = append(b, cffDictEncodeNumber(int64(v))...)
 		}
 		b = append(b, 12, 13)
 	}
@@ -526,7 +526,7 @@ func (f *Font) cffEncodePrivateDict() []byte {
 	}
 	if len(f.subrsIndex) > 0 {
 		// log.WithField("off", len(b)+2).Trace("dict write local subrs offset")
-		b = append(b, cffDictEncodeNumber(len(b)+2)...)
+		b = append(b, cffDictEncodeNumber(int64(len(b)+2))...)
 		b = append(b, 19)
 	}
 	return b
