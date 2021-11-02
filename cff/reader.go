@@ -5,25 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-
-	nested "github.com/antonfisher/nested-logrus-formatter"
-	"github.com/sirupsen/logrus"
 )
-
-var log *logrus.Logger
-
-func init() {
-	log = logrus.New()
-	log.SetFormatter(&nested.Formatter{
-		HideKeys: false,
-		NoColors: true,
-	})
-
-	log.SetLevel(logrus.TraceLevel)
-	// log.SetReportCaller(true)
-	log.SetOutput(os.Stdout)
-}
 
 func read(r io.Reader, data interface{}) error {
 	return binary.Read(r, binary.BigEndian, data)
@@ -74,7 +56,6 @@ func readOffset(r io.Reader, offsetsize uint8) uint32 {
 
 // cffReadIndexData reads a number of slices with data.
 func cffReadIndexData(r io.Reader, name string) [][]byte {
-	// log.WithField("idx", name).Trace("CFF read index")
 	var count uint16
 	read(r, &count)
 	if count == 0 {
@@ -227,7 +208,6 @@ func (c *CFF) FontName() string {
 
 // ParseCFFData interprets the CFF data and returns an error or nil.
 func ParseCFFData(r io.ReadSeeker) (*CFF, error) {
-	log.Debug("ParseCFFData")
 	cff := &CFF{}
 
 	read(r, &cff.Major)
@@ -258,6 +238,5 @@ func ParseCFFData(r io.ReadSeeker) (*CFF, error) {
 		}
 	}
 
-	log.Debug("ParseCFFData...done")
 	return cff, nil
 }

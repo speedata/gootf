@@ -34,7 +34,6 @@ func TestCreateLoca(t *testing.T) {
 
 	if cmp := bytes.Compare(bloca, locaBuffer.Bytes()); cmp != 0 {
 		t.Errorf("compare = %d, want 0 (table loca)", cmp)
-		// fmt.Println(hex.Dump(locaBuffer.Bytes()))
 	}
 }
 
@@ -48,7 +47,7 @@ func TestCompareTables(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tables := []string{"hhea", "head", "maxp", "loca", "hmtx", "fpgm", "cvt ", "prep", "glyf"}
+	tables := []string{"hhea", "head", "maxp", "loca", "fpgm", "cvt ", "prep", "glyf"}
 	for _, tbl := range tables {
 		btbl, err := font.ReadTableData(tbl)
 		if err != nil {
@@ -70,9 +69,6 @@ func TestCompareTables(t *testing.T) {
 
 		if cmp := bytes.Compare(btbl, bw.Bytes()); cmp != 0 {
 			t.Errorf("compare = %d, want 0 (table %s)", cmp, tbl)
-			// fmt.Println(btbl)
-			// fmt.Println(bw.Bytes())
-
 		}
 
 	}

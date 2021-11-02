@@ -54,7 +54,6 @@ func writeOffset(w io.Writer, offsetsize uint8, offset int) error {
 // writeIndexData writes the data slices to the writer w in CFF index format (cf CFF spec 5 INDEX Data p. 12).
 // It returns the total number of bytes written to the writer.
 func writeIndexData(w io.Writer, data [][]byte, name string) (int, error) {
-	// log.WithField("name", name).Trace("CFF write index")
 	count := uint16(len(data))
 	var err error
 	err = write(w, count)
@@ -70,7 +69,6 @@ func writeIndexData(w io.Writer, data [][]byte, name string) (int, error) {
 	for _, b := range data {
 		lendata += len(b)
 	}
-	// log.WithField("lendata", lendata).Trace("write index")
 	var offsetSize uint8
 	if lendata <= 1<<8 {
 		offsetSize = 1
@@ -81,7 +79,6 @@ func writeIndexData(w io.Writer, data [][]byte, name string) (int, error) {
 	} else {
 		offsetSize = 4
 	}
-	// log.WithField("offsetsize", offsetSize).Trace("write")
 	if err = write(w, offsetSize); err != nil {
 		return 0, err
 	}
@@ -138,7 +135,6 @@ func (c *CFF) writeGlobalSubrIndex(w io.Writer) (int, error) {
 
 // writeIndex returns the number of bytes written to the index and an error.
 func (c *CFF) writeIndex(w io.Writer, index mainIndex) (int, error) {
-	// log.WithField("index", index).Trace("writeIndex")
 	switch index {
 	case NameIndex:
 		return c.writeNameIndex(w)
@@ -372,42 +368,34 @@ func cffDictEncodeNumber(num int64) []byte {
 func (f *Font) cffEncodeTopDict() []byte {
 	var b []byte
 	if i := f.version; i != 0 {
-		// log.WithField("fnt.version", f.version).Trace("dict write version")
 		b = append(b, cffDictEncodeNumber(int64(i))...)
 		b = append(b, 0)
 	}
 	if i := f.notice; i != 0 {
-		// log.WithField("notice", i).Trace("dict write notice")
 		b = append(b, cffDictEncodeNumber(int64(i))...)
 		b = append(b, 1)
 	}
 	if i := f.copyright; i != 0 {
-		// log.Trace("dict write copyright")
 		b = append(b, cffDictEncodeNumber(int64(i))...)
 		b = append(b, 12, 0)
 	}
 	if i := f.fullname; i != 0 {
-		// log.Trace("dict write full name")
 		b = append(b, cffDictEncodeNumber(int64(i))...)
 		b = append(b, 2)
 	}
 	if i := f.familyname; i != 0 {
-		// log.Trace("dict write family name")
 		b = append(b, cffDictEncodeNumber(int64(i))...)
 		b = append(b, 3)
 	}
 	if i := f.weight; i != 0 {
-		// log.WithField("i", i).Trace("dict write weight")
 		b = append(b, cffDictEncodeNumber(int64(i))...)
 		b = append(b, 4)
 	}
 	if num := f.uniqueid; num != 0 {
-		// log.WithField("num", num).Trace("dict write uid")
 		b = append(b, cffDictEncodeNumber(int64(num))...)
 		b = append(b, 13)
 	}
 	if f.bbox[0] != 0 || f.bbox[1] != 0 || f.bbox[2] != 0 || f.bbox[3] != 0 {
-		// log.WithField("bbox", f.bbox).Trace("dict write font bbox")
 		b = append(b, cffDictEncodeNumber(int64(f.bbox[0]))...)
 		b = append(b, cffDictEncodeNumber(int64(f.bbox[1]))...)
 		b = append(b, cffDictEncodeNumber(int64(f.bbox[2]))...)
@@ -415,32 +403,26 @@ func (f *Font) cffEncodeTopDict() []byte {
 		b = append(b, 5)
 	}
 	if num := f.underlinePosition; num != -100 {
-		// log.Trace("dict write underline position")
 		b = append(b, cffDictEncodeFloat(num)...)
 		b = append(b, 12, 3)
 	}
 	if num := f.underlineThickness; num != 50 {
-		// log.Trace("dict write underline thickness")
 		b = append(b, cffDictEncodeFloat(num)...)
 		b = append(b, 12, 4)
 	}
 	if num := f.charsetOffset; num != 0 {
-		// log.WithField("off", num).Trace("dict write charsetoffset")
 		b = append(b, cffDictEncodeNumber(int64(num))...)
 		b = append(b, 15)
 	}
 	if num := f.encodingOffset; num != 0 {
-		// log.WithField("off", num).Trace("dict write encodingoffset")
 		b = append(b, cffDictEncodeNumber(int64(num))...)
 		b = append(b, 16)
 	}
 	if num := f.charstringsOffset; num != 0 {
 		b = append(b, cffDictEncodeNumber(int64(num))...)
-		// log.WithField("off", num).Trace("dict write charstring offset")
 		b = append(b, 17)
 	}
 	if num := f.privatedictoffset; num != 0 {
-		// log.WithFields(logrus.Fields{"size": f.privatedictsize, "off": f.privatedictoffset}).Trace("dict write privatedictsize, offset")
 		b = append(b, cffDictEncodeNumber(int64(f.privatedictsize))...)
 		b = append(b, cffDictEncodeNumber(int64(num))...)
 		b = append(b, 18)
@@ -452,28 +434,24 @@ func (f *Font) cffEncodeTopDict() []byte {
 func (f *Font) cffEncodePrivateDict() []byte {
 	var b []byte
 	if len(f.bluevalues) > 0 {
-		// log.WithField("val", f.bluevalues).Trace("dict write bluevalues")
 		for _, v := range f.bluevalues {
 			b = append(b, cffDictEncodeNumber(int64(v))...)
 		}
 		b = append(b, 6)
 	}
 	if len(f.otherblues) > 0 {
-		// log.WithField("val", f.otherblues).Trace("dict write otherblues")
 		for _, v := range f.otherblues {
 			b = append(b, cffDictEncodeNumber(int64(v))...)
 		}
 		b = append(b, 7)
 	}
 	if len(f.familyblues) > 0 {
-		// log.WithField("val", f.familyblues).Trace("dict write familyblues")
 		for _, v := range f.familyblues {
 			b = append(b, cffDictEncodeNumber(int64(v))...)
 		}
 		b = append(b, 8)
 	}
 	if len(f.familyotherblues) > 0 {
-		// log.WithField("val", f.familyotherblues).Trace("dict write familyotherblues")
 		for _, v := range f.familyotherblues {
 			b = append(b, cffDictEncodeNumber(int64(v))...)
 		}
@@ -481,51 +459,42 @@ func (f *Font) cffEncodePrivateDict() []byte {
 	}
 
 	if num := f.bluescale; num != 0.039625 {
-		// log.WithField("num", num).Trace("dict write blue scale")
 		b = append(b, cffDictEncodeFloat(num)...)
 		b = append(b, 12, 9)
 	}
 	if num := f.bluefuzz; num != 1 {
-		// log.WithField("num", num).Trace("dict write blue fuzz")
 		b = append(b, cffDictEncodeFloat(float64(f.bluefuzz))...)
 		b = append(b, 12, 11)
 	}
 	if num := f.stdhw; num != 0 {
-		// log.WithField("num", num).Trace("dict write stdhw")
 		b = append(b, cffDictEncodeFloat(float64(f.stdhw))...)
 		b = append(b, 10)
 	}
 	if num := f.stdvw; num != 0 {
-		// log.WithField("num", num).Trace("dict write stdvw")
 		b = append(b, cffDictEncodeFloat(float64(f.stdvw))...)
 		b = append(b, 11)
 	}
 	if len(f.stemsnaph) > 0 {
-		// log.WithField("val", f.stemsnaph).Trace("dict write stemsnaph")
 		for _, v := range f.stemsnaph {
 			b = append(b, cffDictEncodeNumber(int64(v))...)
 		}
 		b = append(b, 12, 12)
 	}
 	if len(f.stemsnapv) > 0 {
-		// log.WithField("val", f.stemsnapv).Trace("dict write stemsnapv")
 		for _, v := range f.stemsnapv {
 			b = append(b, cffDictEncodeNumber(int64(v))...)
 		}
 		b = append(b, 12, 13)
 	}
 	if num := f.defaultWidthX; num != 0 {
-		// log.WithField("defaultWidthX", num).Trace("dict write defaultWidthX")
 		b = append(b, cffDictEncodeFloat(float64(num))...)
 		b = append(b, 20)
 	}
 	if num := f.nominalWidthX; num != 0 {
-		// log.WithField("nominalWidthX", num).Trace("dict write nominalWidthX")
 		b = append(b, cffDictEncodeFloat(float64(num))...)
 		b = append(b, 21)
 	}
 	if len(f.subrsIndex) > 0 {
-		// log.WithField("off", len(b)+2).Trace("dict write local subrs offset")
 		b = append(b, cffDictEncodeNumber(int64(len(b)+2))...)
 		b = append(b, 19)
 	}
@@ -537,7 +506,6 @@ func (f *Font) writeCharStringsIndex(w io.Writer) (int, error) {
 }
 
 func (f *Font) writeCharSet(w io.Writer) (int, error) {
-	// log.WithField("fmt", f.charsetFormat).Trace("Write CharSet")
 	var err error
 
 	write(w, f.charsetFormat)
@@ -627,7 +595,6 @@ func (f *Font) writeEncoding(w io.Writer) (int, error) {
 
 // writeIndex returns the number of bytes written to the index and an error.
 func (f *Font) writeIndex(w io.Writer, index mainIndex) (int, error) {
-	// log.WithField("idx", index.String()).Trace("writeIndex")
 	switch index {
 	case CharStringsIndex:
 		return f.writeCharStringsIndex(w)

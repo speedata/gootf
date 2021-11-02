@@ -13,24 +13,8 @@ import (
 	"strings"
 	"unicode/utf16"
 
-	nested "github.com/antonfisher/nested-logrus-formatter"
-	"github.com/sirupsen/logrus"
 	"github.com/speedata/gootf/cff"
 )
-
-var log *logrus.Logger
-
-func init() {
-	log = logrus.New()
-	log.SetFormatter(&nested.Formatter{
-		HideKeys: false,
-		NoColors: true,
-	})
-
-	log.SetLevel(logrus.TraceLevel)
-	// log.SetReportCaller(true)
-	log.SetOutput(os.Stdout)
-}
 
 func (tt *Font) String() string {
 	return "font"
@@ -908,7 +892,6 @@ func LoadFace(filename string, fontindex int) (*Font, error) {
 
 // Open initializes the TrueType font
 func Open(r io.ReadSeeker, fontindex int) (*Font, error) {
-	log.Trace("opentype.Open")
 	tt := &Font{}
 	tt.r = r
 	tt.fontindex = fontindex
