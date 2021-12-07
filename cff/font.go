@@ -487,6 +487,9 @@ func (f *Font) Subset(globalSubr [][]byte, codepoints []int) {
 	f.CharStrings = f.CharStrings[:lastcp+1]
 	f.charset = f.charset[:lastcp+1]
 
+	usedGlobalSubrsMap = make(map[int]bool)
+	usedLocalSubrsMap = make(map[int]bool)
+
 	for _, cp := range codepoints {
 		cs := f.CharStrings[cp]
 		getSubrsIndex(globalSubr, f.subrsIndex, cs)

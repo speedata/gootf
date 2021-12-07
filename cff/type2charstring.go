@@ -15,11 +15,6 @@ var (
 	usedLocalSubrsMap  map[int]bool
 )
 
-func init() {
-	usedGlobalSubrsMap = make(map[int]bool)
-	usedLocalSubrsMap = make(map[int]bool)
-}
-
 // getSubrsIndex goes recursively into all subroutines called by the char string cs and
 // sets the entries in the global maps usedGlobalSubrsMap and usedLocalSubrsMap to true
 // if the subroutine is used.
