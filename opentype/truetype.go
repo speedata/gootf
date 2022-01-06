@@ -945,7 +945,7 @@ func (tt *Font) ReadTables() error {
 	var interestingTables []string
 	var err error
 	if tt.IsCFF {
-		interestingTables = []string{"CFF ", "hhea", "maxp", "hmtx", "cmap"}
+		interestingTables = []string{"CFF ", "hhea", "maxp", "hmtx", "cmap", "OS/2"}
 	} else {
 		interestingTables = []string{"head", "hhea", "maxp", "loca", "hmtx", "fpgm", "cvt ", "prep", "glyf", "post", "OS/2", "name", "cmap"}
 	}
