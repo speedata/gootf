@@ -1175,7 +1175,7 @@ func (tt *Font) Widths() string {
 	var b strings.Builder
 	b.WriteString("[")
 	for _, cp := range tt.subsetCodepoints {
-		fmt.Fprintf(&b, "%d[%d]", cp, tt.advanceWidth[cp])
+		fmt.Fprintf(&b, "%d[%.1f]", cp, float64(tt.advanceWidth[cp])/float64(tt.UnitsPerEM)*1000)
 	}
 	b.WriteString("]")
 	return b.String()
